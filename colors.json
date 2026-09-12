@@ -1,0 +1,21 @@
+{
+  "map_settings": {
+    "tile_server_url": "https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+    "comment": "Nutze 'https://mt0.google.com/vt/lyrs=s...' für Satellit oder 'http://c.tile.stamen.com/watercolor/{z}/{x}/{y}.png' für Aquarell"
+  },
+  "altitude_gradient": {
+    "low": [0, 255, 255],
+    "mid": [255, 0, 255],
+    "high": [255, 255, 0]
+  },
+  "gui_theme": {
+    "main_bg": "#1a1a2e",
+    "panel_bg": "#16213e",
+    "text_color": "#00fff5",
+    "entry_bg": "#0f3460",
+    "entry_fg": "#ffffff",
+    "btn_bg": "#e94560",
+    "btn_fg": "#ffffff",
+    "btn_disabled_bg": "#53354a"
+  }
+}
