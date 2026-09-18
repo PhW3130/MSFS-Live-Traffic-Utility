@@ -47,7 +47,7 @@ When the simulator is not running, the utility automatically starts in map mode 
 Clone the repository:
 
 ```bash
-git clone https://github.com/YOURNAME/MSFS-Live-Traffic-Utility.git
+git clone https://github.com/PhW/MSFS-Live-Traffic-Utility.git
 cd MSFS-Live-Traffic-Utility
 ```
 
