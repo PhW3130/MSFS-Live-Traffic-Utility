@@ -519,9 +519,104 @@ def get_player_position(sm):
 
 
 _last_adsb_data = []
+_last_adsb_error = ""
+
+# =========================
+# TRAFFIC SOURCE
+# =========================
+# "adsblol" (default) or "planetrack". Set it with the environment variable
+# MSFS_TRAFFIC_SOURCE or in colors.json under "traffic_source"; the environment
+# variable wins. PlaneTrack needs an API key (PLANETRACK_API_KEY or
+# "planetrack_api_key" in colors.json), get one at https://planetrack.ai/simulators.html
+_SOURCE_SETTINGS = COLOR_SCHEME.get("traffic_source", {})
+TRAFFIC_SOURCE = (
+    os.environ.get("MSFS_TRAFFIC_SOURCE") or _SOURCE_SETTINGS.get("provider") or "adsblol"
+).strip().lower().replace(".", "").replace("-", "")
+PLANETRACK_API_KEY = (
+    os.environ.get("PLANETRACK_API_KEY") or _SOURCE_SETTINGS.get("planetrack_api_key") or ""
+).strip()
+PLANETRACK_URL = "https://planetrack.ai/v1/sim/v2/point/{lat}/{lon}/{radius}"
+PLANETRACK_MAX_RADIUS_NM = 250    # free accounts are limited to 40 nm by the server
+PLANETRACK_MIN_INTERVAL_SEC = 2.5  # the server answers 429 to polls closer than 2 s
+
+_planetrack_next_request = 0.0
+
+
+def _planetrack_error_text(r):
+    try:
+        detail = r.json().get("detail")
+        if isinstance(detail, dict):
+            return detail.get("message") or detail.get("error") or str(detail)
+        if detail:
+            return str(detail)
+    except Exception:
+        pass
+    return f"HTTP {r.status_code}"
+
+
+def _get_planetrack_traffic(lat, lon, radius):
+    global _last_adsb_data, _last_adsb_error, _planetrack_next_request
+
+    now = time.time()
+    if now < _planetrack_next_request:
+        return _last_adsb_data
+
+    if not PLANETRACK_API_KEY:
+        _last_adsb_error = "PlaneTrack: no API key set (PLANETRACK_API_KEY)"
+        print("[PlaneTrack] no API key set (PLANETRACK_API_KEY)")
+        _planetrack_next_request = now + 30
+        return []
+
+    # Same radius value as the adsb.lol call (both read it as nautical miles)
+    radius = int(max(1, min(PLANETRACK_MAX_RADIUS_NM, round(radius))))
+    url = PLANETRACK_URL.format(lat=lat, lon=lon, radius=radius)
+    headers = {
+        "User-Agent": API_USER_AGENT,
+        "Accept": "application/json",
+        "api-auth": PLANETRACK_API_KEY,
+    }
+    _planetrack_next_request = now + PLANETRACK_MIN_INTERVAL_SEC
+
+    try:
+        r = requests.get(url, headers=headers, timeout=15)
+    except Exception as e:
+        print(f"[PlaneTrack] request failed: {e}")
+        return _last_adsb_data
+
+    if r.status_code == 200:
+        try:
+            aircraft = r.json().get("ac", [])
+        except Exception as e:
+            print(f"[PlaneTrack] bad response: {e}")
+            return _last_adsb_data
+        _last_adsb_data = aircraft
+        _last_adsb_error = ""
+        return aircraft
+
+    message = _planetrack_error_text(r)
+    retry_after = r.headers.get("Retry-After")
+    if r.status_code == 429 and retry_after:
+        # polled too fast: wait as asked and keep showing the last traffic
+        try:
+            _planetrack_next_request = now + max(PLANETRACK_MIN_INTERVAL_SEC, float(retry_after))
+        except ValueError:
+            pass
+        return _last_adsb_data
+
+    # 401 invalid key, 403 plan, 429 daily allowance used: show why and stop
+    # showing stale traffic; try again later
+    _last_adsb_error = f"PlaneTrack: {message}"
+    print(f"[PlaneTrack] HTTP {r.status_code}: {message}")
+    _planetrack_next_request = now + (60 if r.status_code in (401, 403, 429) else 10)
+    _last_adsb_data = []
+    return []
+
 
 def get_adsb_traffic(lat, lon, radius_km=500):
     global _last_adsb_data
+
+    if TRAFFIC_SOURCE == "planetrack":
+        return _get_planetrack_traffic(lat, lon, radius_km)
 
     endpoints = [
         f"https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{radius_km}",
@@ -1264,7 +1359,9 @@ class FlightTrackerApp:
                         self.map_widget.set_position(m.position[0], m.position[1])
 
                     # Status
-                    if self.show_all_var.get():
+                    if _last_adsb_error:
+                        self.status_label.config(text=_last_adsb_error)
+                    elif self.show_all_var.get():
                         self.status_label.config(
                             text=f"{len(aircrafts)} aircraft received | Trail: {self.selected_flight}"
                         )
@@ -1287,6 +1384,7 @@ class FlightTrackerApp:
 def main():
     print("Starte MSFS Live Traffic Utility…")
     print(f"Sprache erkannt: {LANG}")
+    print(f"Traffic source: {TRAFFIC_SOURCE}")
 
     try:
         get_model_resolver()

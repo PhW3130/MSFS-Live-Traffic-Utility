@@ -8,6 +8,11 @@
     "mid": [255, 0, 255],
     "high": [255, 255, 0]
   },
+  "traffic_source": {
+    "provider": "adsblol",
+    "planetrack_api_key": "",
+    "comment": "provider: 'adsblol' (default) or 'planetrack'. PlaneTrack needs an API key from https://planetrack.ai/simulators.html (or set the environment variables MSFS_TRAFFIC_SOURCE and PLANETRACK_API_KEY)"
+  },
   "gui_theme": {
     "main_bg": "#1a1a2e",
     "panel_bg": "#16213e",

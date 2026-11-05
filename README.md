@@ -79,6 +79,15 @@ Examples:
 - Custom UI themes
 - Custom altitude color gradients
 
+## Traffic Sources
+
+By default the utility uses the free adsb.lol API. PlaneTrack (https://planetrack.ai) can be selected instead:
+
+- In `colors.json`, set `traffic_source.provider` to `planetrack` and `traffic_source.planetrack_api_key` to your key
+- Or set the environment variables `MSFS_TRAFFIC_SOURCE=planetrack` and `PLANETRACK_API_KEY=<your key>` (these win over `colors.json`)
+
+PlaneTrack keys are created at https://planetrack.ai/simulators.html. Free keys get traffic within 40 nm for 2 hours a day; the paid Sim Traffic plan raises this to 250 nm with no daily limit. The utility polls PlaneTrack at most every 2.5 seconds.
+
 ## Project Status
 
 This project is actively developed and considered experimental.
